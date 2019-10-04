@@ -1,6 +1,10 @@
 CXX = g++
 CXXFLAGS = -O2
-TARGET = a.exe
+ifeq ($(OS),Windows_NT)
+  TARGET = a.exe
+else
+  TARGET = a.out
+endif
 SRCS = main.cpp appLogger.cpp
 OBJS := $(SRCS:.cpp=.o)
 
