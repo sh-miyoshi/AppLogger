@@ -1,58 +1,88 @@
-#include <stdio.h>
+#include <string>
 #include <time.h>
 #include <sstream>
+#include <stdarg.h> 
+#include <stdio.h>
+#include <stdlib.h>
 #include "appLogger.h"
 
-AppLogger::LogLevel AppLogger::WRITE_LOG_LEVEL=AppLogger::eLOG_NOTHING;
-AppLogger::LogLevel AppLogger::FORCE_TERMINATE_LEVEL=AppLogger::eLOG_ERROR;
-std::string AppLogger::LOG_FILE_NAME="app.log";
+static AppLogger::LogLevel WRITE_LOG_LEVEL = AppLogger::eLOG_DEBUG;
+static AppLogger::LogLevel FORCE_TERMINATE_LEVEL = AppLogger::eLOG_ERROR;
+static std::string LOG_FILE_NAME = "application.log";
 
-void AppLogger::ChangeLogLevel(AppLogger::LogLevel lv){
-	WRITE_LOG_LEVEL=lv;
+#ifndef _MSC_VER
+int _vscprintf(const char * format, va_list pargs){
+	va_list argcopy;
+	va_copy(argcopy, pargs);
+	int res = vsnprintf(NULL, 0, format, argcopy);
+	va_end(argcopy);
+	return res;
+}
+#endif
+
+void AppLogger::ChangeLogLevel(AppLogger::LogLevel lv) {
+	WRITE_LOG_LEVEL = lv;
 }
 
-void AppLogger::ChangeForceTerminateLevel(AppLogger::LogLevel lv){
-	FORCE_TERMINATE_LEVEL=lv;
+void AppLogger::ChangeForceTerminateLevel(AppLogger::LogLevel lv) {
+	FORCE_TERMINATE_LEVEL = lv;
 }
 
-void AppLogger::ChangeLogFileName(std::string fname){
-	LOG_FILE_NAME=fname;
+void AppLogger::ChangeLogFileName(std::string fname) {
+	LOG_FILE_NAME = fname;
 }
 
-bool AppLogger::Log(AppLogger::LogLevel log_level,std::string message){
-	if(log_level>=WRITE_LOG_LEVEL){
-		FILE *fp=fopen(LOG_FILE_NAME.c_str(),"a");
-		if(fp){
-			// format: [INFO] year-month-day hour:min:sec message
+void AppLogger::CleanupLogFile() {
+	remove(LOG_FILE_NAME.c_str());
+}
+
+void AppLogger::Log(const char* fname, int lineNo, LogLevel logLevel, const char* format, ...) {
+	if( logLevel >= WRITE_LOG_LEVEL ) {
+		FILE* fp = fopen(LOG_FILE_NAME.c_str(), "a");
+		if( fp ) {
+			// format: [INFO] year-month-day hour:min:sec fname:lineNo message
 			std::stringstream output;
-			output<<"[";
-			switch(log_level){
+
+			// output log level
+			output << "[";
+			switch( logLevel ) {
 			case eLOG_DEBUG:
-				output<<"DEBUG";
+				output << "DEBUG";
+				break;
+			case eLOG_INFO:
+				output << "INFO";
 				break;
 			case eLOG_WARN:
-				output<<"WARN";
+				output << "WARN";
 				break;
 			case eLOG_ERROR:
-				output<<"ERROR";
+				output << "ERROR";
 				break;
-			default:
-				return false;
 			}
-			output<<"] ";
+			output << "] ";
 
 			// output date
-			time_t now=time(NULL);
-			struct tm *t=localtime(&now);
-			output<<(t->tm_year+1900)<<"-"<<(t->tm_mon+1)<<"-"<<t->tm_mday<<" ";
-			output<<t->tm_hour<<":"<<t->tm_min<<":"<<t->tm_sec<<" ";
+			time_t now = time(NULL);
+			struct tm *t = localtime(&now);
+			output << ( t->tm_year + 1900 ) << "-" << ( t->tm_mon + 1 ) << "-" << t->tm_mday << " ";
+			output << t->tm_hour << ":" << t->tm_min << ":" << t->tm_sec << " ";
 
-			output<<message<<"\n";
-			fputs(output.str().c_str(),fp);
+			// output file name and line number
+			output << fname << ":" << lineNo << " ";
+
+			// output message
+			va_list args;
+			va_start(args, format);
+			int len = _vscprintf(format, args) + 1;
+			char* buf = new char[len];
+			vsprintf(buf, format, args);
+			output << buf << "\n";
+			delete[] buf;
+
+			fputs(output.str().c_str(), fp);
 			fclose(fp);
-		}else
-			return false;
-		return true;// success of adding a log
+			if( logLevel >= FORCE_TERMINATE_LEVEL )
+				exit(1);
+		}
 	}
-	return false;
 }
