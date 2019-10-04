@@ -3,7 +3,12 @@
 
 int main(int argc,char *argv[]){
 	AppLogger::ChangeLogLevel(AppLogger::eLOG_DEBUG);
-	AppLogger::Log(AppLogger::eLOG_WARN,"warning message");
-	AppLogger::Log(AppLogger::eLOG_ERROR,"error is occured");
+	AppLogger::ChangeLogFileName("test.log");
+
+	AppLogger::Warn("warning message");
+
+	int val = 10;
+	AppLogger::Info("val = %d", val);
+
 	return 0;
 }
